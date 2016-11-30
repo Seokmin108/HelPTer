@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,user-scalable=no">
+<title>HelPTer</title>
+<link rel="stylesheet" href="lib/tau/wearable/theme/default/tau.min.css">
+<link rel="stylesheet" media="all and (-tizen-geometric-shape: circle)" href="lib/tau/wearable/theme/default/tau.circle.min.css">
+<!-- load theme file for your application -->
+<link rel="stylesheet" href="css/style.css">
+<script type="text/javascript">
+	var webSocketURL;
+	var webSocket;
+	var serverIP = "ws://192.168.43.208";
+	var msg;
+
+	var totalSpendTime = 0;
+	var totalAssignTime = 0;
+	var slideSpendTime = new Array();
+	var currentPage = 0;
+	var totalPage = 0;
+	
+	window.onload = function() {
+		window.addEventListener("rotarydetent", function(e) {
+			if (e.detail.direction == "CW") {
+				sendMessage("next");
+				if(currentPage < totalPage - 1){
+					currentPage++;
+				}
+			} else {
+				sendMessage("previous");
+				if(currentPage > 0 ){
+					currentPage--;
+				}
+			}
+		}, false);
+		window.addEventListener("devicemotion", onDeviceMotion, true);
+	};
+
+	function serverConnect() {
+		console.log("serverConnect");
+		
+		webSocketURL = serverIP + "/GearS2/websocket";
+		webSocket = new WebSocket(webSocketURL);
+
+		// When the WebSocket connection is established
+		webSocket.onopen = function(e) {
+			console.log('connection open, readyState : ' + e.target.readyState);
+		};
+
+		// When the WebSocket message has been received
+		webSocket.onmessage = function(e) {
+			msg = JSON.parse(e.data);
+			
+			totalPage = msg.length;
+			for(var i = 0; i < totalPage; i++){
+				slideSpendTime.push(0);
+				totalAssignTime += msg[i].time;
+			}
+
+			var timer = window.setInterval(function() {
+				addTime();
+				console.log(slideSpendTime);
+				document.getElementById("total").innerHTML = "Total : " + (++totalSpendTime) + "s / " + totalAssignTime + "s";
+				document.getElementById("slide").innerHTML = "Slide : " + slideSpendTime[currentPage] + "s / " + msg[currentPage].time + "s";
+				document.getElementById("keyword").innerHTML = msg[currentPage].keyword;
+				document.getElementById("memo").innerHTML = msg[currentPage].memo;
+
+
+				<!--전체 10초 전  진동-->
+				if((msg[currentPage].time - slideSpendTime[currentPage]) == 10 ){
+					navigator.vibrate(1000);
+				}
+
+				<!--전체 정각  진동-->
+				if((slideSpendTime[currentPage] == msg[currentPage].time)){
+					navigator.vibrate(3000);
+				}
+
+				<!--Slide 10초 전  진동-->
+				if((msg[currentPage].time - slideSpendTime[currentPage]) == 10 ){
+					navigator.vibrate(1000);
+				}
+
+				<!--Slide 정각  진동-->
+				if((slideSpendTime[currentPage] == msg[currentPage].time)){
+					navigator.vibrate(3000);
+				}
+			}, 1000);
+		};
+
+		// When fail the WebSocket connection or the WebSocket connection is closed with prejudice
+		webSocket.onerror = function(e) {
+			console.log('error, readyState : ' + e.target.readyState);
+		};
+	}
+
+	function sendMessage(msg) {
+		if (webSocket.readyState == 1) {
+			webSocket.send(msg);
+		}
+	}
+
+	function serverDisconnect() {
+		if (webSocket.readyState == 1) {
+			webSocket.close();
+		}
+	}
+
+	function addTime() {
+		slideSpendTime[currentPage]++;
+	}
+ 
+	<!-- 모션센서 -->
+	function onDeviceMotion(e) {
+		if (e.rotationRate.beta < -10 && e.acceleration.y < -10) {
+			sendMessage("next");
+			if(currentPage < totalPage - 1){
+				currentPage++;
+			}
+		}
+		if (e.rotationRate.beta > 10 && e.acceleration.y > 10) {
+			sendMessage("previous");
+			if(currentPage > 0 ){
+				currentPage--;
+			}
+		}
+		//document.getElementById("slideAssignTime").innerHTML = msg[currentPage].time;
+	}
+</script>
+</head>
+<body>
+	<div class="ui-page ui-page-active" id="main">
+		<header class="ui-header">
+			<h2 class="ui-title">Setting</h2>
+		</header>
+		<div class="ui-content content-padding">
+			<input type="button" value="PPT 연결" id="connect" onclick="serverConnect()"/> 
+			<input type="button" value="PPT 종료" id="pptEnd" onclick="serverDisconnect()"/><br><br>
+		</div>
+
+		<div class="ui-content content-padding">
+			<div class="ui-content content-padding">
+				<h3 id="total"></h3>
+				<h3 id="slide" ></h3>
+				<h3 id="keyword"></h3>
+				<h3 id="memo"></h3>
+			</div>
+		</div>
+	</div>
+	<script type="text/javascript" src="lib/tau/wearable/js/tau.min.js"></script>
+	<script type="text/javascript" src="js/circle-helper.js"></script>
+	<script src="app.js"></script>
+	<script src="lowBatteryCheck.js"></script>
+</body>
+</html>

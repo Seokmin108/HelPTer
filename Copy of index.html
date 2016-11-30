@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,user-scalable=no">
+<title>HelPTer</title>
+<link rel="stylesheet" href="lib/tau/wearable/theme/default/tau.min.css">
+<link rel="stylesheet" media="all and (-tizen-geometric-shape: circle)" href="lib/tau/wearable/theme/default/tau.circle.min.css">
+<!-- load theme file for your application -->
+<link rel="stylesheet" href="css/style.css">
+<script type="text/javascript">
+	var webSocketURL;
+	var webSocket;
+	var serverIP = "ws://192.168.0.5";
+	
+	var currentPage = 1;
+	var pages;
+	var ppt_no;
+	var active = 0;
+	var timer_array = [];
+	var times = new Array(100);
+	
+	for (var i = 0; i < 100; i++) {
+		times[i] = 0;
+	}
+
+	window.onload = function() {
+		window.addEventListener("rotarydetent", function(e) {
+			if (e.detail.direction == "CW") {
+				sendMessage("next");
+			} else {
+				sendMessage("previous");
+			}
+		}, false);
+		window.addEventListener("devicemotion", onDeviceMotion, true);
+	};
+
+	function serverConnect() {
+		webSocketURL = serverIP + "/GearS2/websocket";
+		webSocket = new WebSocket(webSocketURL);
+
+		// When the WebSocket connection is established
+		webSocket.onopen = function(e) {
+			console.log('connection open, readyState : ' + e.target.readyState);
+		};
+
+		// When the WebSocket message has been received
+		webSocket.onmessage = function(e) {
+			console.log("server : " + e.data)
+			/* 
+			if( e.data != null ){
+				json = JSON.parse(e.data);
+				
+				console.log('pages :' + json['pages']  );
+				console.log('ppt_no :' + json['ppt_no']  );
+				pages = json['pages'];
+				ppt_no = json['ppt_no'];
+				
+				for(var i=1;i<=pages;i++){
+					timer_array.push(json[i]);
+				}
+				console.log('server message : ' + timer_array);
+			}
+			 */
+		};
+
+		// When fail the WebSocket connection or the WebSocket connection is closed with prejudice
+		webSocket.onerror = function(e) {
+			console.log('error, readyState : ' + e.target.readyState);
+		};
+	}
+
+	function addTime() {
+		times[currentPage]++;
+	}
+
+	function sendMessage(msg) {
+		if (webSocket.readyState == 1) {
+			webSocket.send(msg);
+		}
+	}
+
+	
+	/*
+	function sendMessage(msg) {
+		if (webSocket.readyState == 1) {
+			webSocket.send(msg);
+			if (msg == "pptStart") {
+				active = 1;
+				for (var i = 0; i < 100; i++) {
+					times[i] = 0;
+				}
+				var timerFunc = window.setInterval(function() {
+					addTime();
+					var diff = times[currentPage] - timer_array[currentPage];
+					if( diff == 0 ){
+						navigator.vibrate(1000);
+					}
+
+					if( diff > 10 && diff < 15 ){
+						navigator.vibrate(1000);
+					}
+					
+					document.getElementById("slideNum").innerHTML = "슬라이드 " + currentPage;
+					document.getElementById("currentTime").innerHTML = times[currentPage];
+					document.getElementById("totalTime").innerHTML = timer_array[currentPage];
+				}, 1000);
+			}
+			if (msg == "pptEnd") {
+				active = 0;
+				clearInterval(timerFunc);
+				console.log("Timer ends");
+				webSocket.send("timerData" + " " + ppt_no + " " + times);		
+			}
+
+			if (msg == "previous") {
+				currentPage--;
+			}
+
+			if (msg == "next") {
+				currentPage++;
+			}
+		}
+	}
+	*/
+
+	function serverDisconnect() {
+		if (webSocket.readyState == 1) {
+			webSocket.close();
+		}
+	}
+
+	function onDeviceMotion(e) {
+		if (e.rotationRate.beta > 50 && e.acceleration.y > 10) {
+			sendMessage("previous");
+		}
+		if (e.rotationRate.beta < -30 && e.acceleration.y < -10) {
+			sendMessage("next");
+		}
+	}
+</script>
+</head>
+<body>
+	<div class="ui-page ui-page-active" id="main">
+		<header class="ui-header">
+			<h2 class="ui-title">Settings</h2>
+		</header>
+		<div class="ui-content content-padding">
+			<input type="button" value="PPT 연결" id="connect" onclick="serverConnect()"/> 
+			<input type="button" value="PPT 종료" id="pptEnd" onclick="serverDisconnect()"/><br><br>
+		</div>
+
+		<div class="ui-content content-padding">
+			<h2 id="slideNum"></h2>
+			<div style="display: inline-block;">
+				<h5 >현재시간</h5>
+				<h3 id="currentTime" ></h3>초
+			</div>
+
+			<div style="display: inline-block;">
+				<h5 >총 시간</h5>
+				<h3 id="totalTime" ></h3>초
+			</div>
+		</div>
+	</div>
+	
+
+	<script type="text/javascript" src="lib/tau/wearable/js/tau.min.js"></script>
+	<script type="text/javascript" src="js/circle-helper.js"></script>
+	<script src="app.js"></script>
+	<script src="lowBatteryCheck.js"></script>
+</body>
+</html>
